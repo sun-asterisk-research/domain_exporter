@@ -1,0 +1,12 @@
+syntax = "proto2";
+
+option go_package="github.com/sun-asterisk-research/domain_exporter/probes/domain/proto";
+import "github.com/cloudprober/cloudprober/probes/proto/config.proto";
+
+message ProbeConf {
+  required string domain = 1;
+}
+
+extend cloudprober.probes.ProbeDef {
+  optional ProbeConf domain_probe = 200;
+}

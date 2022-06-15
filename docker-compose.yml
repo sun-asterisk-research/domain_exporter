@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  go:
+    image: golang:1.17-alpine
+    tty: true
+    restart: always
+    working_dir: /domain_exporter
+    user: ${UID:-0}:${GID:-0}
+    environment:
+      HOME: /tmp
+    ports:
+    - 9313:9313
+    volumes:
+    - .:/domain_exporter
+    - ${GOPATH:-~/go}:/go
