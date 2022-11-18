@@ -2,7 +2,6 @@ package domain
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math/rand"
 	"regexp"
@@ -13,11 +12,12 @@ import (
 	"github.com/cloudprober/cloudprober/metrics"
 	"github.com/cloudprober/cloudprober/probes/options"
 	"github.com/cloudprober/cloudprober/targets/endpoint"
-	"github.com/domainr/whois"
+	domainr "github.com/domainr/whois"
 	"github.com/sirupsen/logrus"
 	"github.com/sun-asterisk-research/domain_exporter/common"
 	"github.com/sun-asterisk-research/domain_exporter/probes"
 	configpb "github.com/sun-asterisk-research/domain_exporter/probes/domain/proto"
+	"github.com/sun-asterisk-research/domain_exporter/whois"
 )
 
 // DefaultTargetsUpdateInterval defines default frequency for target updates.
@@ -29,6 +29,7 @@ var (
 
 	formats = []string{
 		"2006-01-02",
+		"02-01-2006",
 		"2006-01-02T15:04:05Z",
 		"02-Jan-2006",
 		"2006.01.02",
@@ -138,19 +139,41 @@ func (p *Probe) Run(ctx context.Context, target endpoint.Endpoint, em *metrics.E
 }
 
 func lookup(domain string) (int64, error) {
-	req, err := whois.NewRequest(domain)
-	if err != nil {
-		return -1, err
+	if strings.HasSuffix(domain, ".vn") {
+		req, err := whois.NewRequest(domain)
+		if err != nil {
+			return -1, err
+		}
+
+		res, err := whois.DefaultClient.Fetch(req)
+		if err != nil {
+			return -1, err
+		}
+
+		date, err := parse(domain, res.Body)
+		if err != nil {
+			return -1, err
+		}
+
+		return date, nil
+	} else {
+		req, err := domainr.NewRequest(domain)
+		if err != nil {
+			return -1, err
+		}
+
+		res, err := domainr.DefaultClient.Fetch(req)
+		if err != nil {
+			return -1, err
+		}
+
+		date, err := parse(domain, res.Body)
+		if err != nil {
+			return -1, err
+		}
+
+		return date, nil
 	}
-
-	res, err := whois.DefaultClient.Fetch(req)
-	if err != nil {
-		return -1, err
-	}
-
-	date, err := parse(domain, res.Body)
-
-	return date, nil
 }
 
 func parse(host string, res []byte) (int64, error) {
@@ -171,7 +194,7 @@ func parse(host string, res []byte) (int64, error) {
 		}
 
 	}
-	return -1, errors.New(fmt.Sprintf("Unable to parse date: %s, for %s\n", strings.TrimSpace(results[2]), host))
+	return -1, fmt.Errorf(fmt.Sprintf("Unable to parse date: %s, for %s\n", strings.TrimSpace(results[2]), host))
 }
 
 // updateTargetsAndStartProbes refreshes targets and starts probe loop for
